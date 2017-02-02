@@ -1,0 +1,22 @@
+#!/usr/bin/perl -w
+#this script generate unique_ID for the whole transcript (merge all unique_IDs for each exon)
+
+use strict;
+
+my $input_gtf = shift or die $!;
+
+my %hash;
+
+open my $FILE, $input_gtf or die $!;
+while (my $line = <$FILE>) {
+    chomp $line;
+    my @array = split /:/, $line;
+    my ($cuff, $introns) = @array;
+    push @{ $hash{$cuff} }, $introns;
+}
+close $FILE;
+
+for my $cuff (keys %hash) {
+    print join ':', $cuff, @{ $hash{$cuff} };
+    print "\n";
+}
