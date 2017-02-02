@@ -1,0 +1,47 @@
+#!/usr/bin/perl -w
+
+#this script inserts data from edgeR output file into r_file table
+#usage lab5_2.pl <username> <password> <database_name> <r_file>
+
+use DBI;
+
+use Data::Dumper;
+
+my $user = shift @ARGV or die $!;
+my $password = shift @ARGV or die $!;
+my $database = shift @ARGV or die $!;
+my $r_file = shift @ARGV or die $!;
+
+my $dbh = DBI->connect("dbi:mysql:$database:localhost",
+                       "$user",
+                       "$password",
+                       {RaiseError => 1}
+                       );
+
+open (FILE, "r_file.txt") or die $!;
+
+LOOP: while (<FILE>) {
+    if (m/^\"(XLOC_\d+)/) {
+        my $xloc_id = $1;
+        if (m/^\"XLOC_\d+\",([^,]*)/) {
+            my $logfc = $1;
+            if (m/^\"XLOC_\d+\",[^,]*,([^,]*)/) {
+                my $logcpm = $1;
+		if (m/^\"XLOC_\d+\",[^,]*,[^,]*,([^,]*)/) {
+		    my $pvalue = $1;
+		    if (m/^\"XLOC_\d+\",[^,]*,[^,]*,[^,]*,([^\s+]*)/) {
+			my $fdr = $1;
+			$sth = $dbh->prepare (qq{insert into r_file (xloc_id, logfc, logcpm, pvalue, fdr) values ("$xloc_id", "$logfc", "$logcpm", "$pvalue", "$fdr")});
+			$sth->execute();
+			$sth->finish();
+			next LOOP;
+		    }
+		}
+	    }
+	}
+    }
+}
+
+close FILE;
+
+$dbh->disconnect ();
