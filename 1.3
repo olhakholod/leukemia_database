@@ -1,0 +1,65 @@
+#!/usr/bin/perl -w
+# this script merge data obtained from transcript.gtf file and merged.gtf file in order to obtain table in the following format: transcript_id\unique_id\xloc_id\FPKM_value
+
+use strict;
+
+my $v_merge_gtf = shift @ARGV or die $!;
+my $unique_gtf = shift @ARGV or die $!;
+
+my %gene;
+my %fpkm_hash;
+my %xloc_hash;
+
+open (FILE, "$v_merge_gtf") or die $!;
+while (<FILE>) {
+    my $line = $_;
+    chomp $line;
+    if ($line =~ /[a-z]/) {
+        my @array = split("\t", $line);
+        if ($array[2] eq 'exon') {
+            my $id = $array[8];
+            if ($id =~ /transcript_id \"(CUFF\S+)/) {
+                $id = $1;
+                $id =~ s/\"//g;
+                $id =~ s/;//;
+		if ( !exists $gene{$id} ) {
+		    $gene{$id} = 1;
+		    
+		    my $fpkm = $array[8];
+		    if ($fpkm =~ /FPKM \"(\S+)/) {
+			$fpkm = $1;
+			$fpkm =~ s/\"//g;
+			$fpkm =~ s/;//;
+			
+			my $xloc = $array[17];
+			if ($xloc =~ /gene_id \"(XLOC\S+)/) {
+			    $xloc = $1;
+			    $xloc =~ s/\"//g;
+			    $xloc =~ s/;//;
+			    
+			    $fpkm_hash{$id} = $fpkm;
+			    $xloc_hash{$id} = $xloc;
+#			    print $id . "\t" . $xloc_hash{$id} . "\t" . $fpkm_hash{$id} . "\n"; 
+			}
+		    }
+		}
+	    }
+	}
+    }
+}
+		
+close FILE;
+
+open (FILE, "$unique_gtf") or die $!;
+while (<FILE>) {
+    my $line = $_;
+    chomp $line;
+    if ($line =~ /[a-z]/) {
+        my @array = split("\t", $line);
+        my $id = $array[0];
+        my $uniq = $array[1];
+        print $id . "\t" . $uniq . "\t" .  $xloc_hash{$id} . "\t" . $fpkm_hash{$id} . "\n";
+    }
+}
+
+close FILE;
