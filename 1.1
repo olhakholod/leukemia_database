@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+
+#this script takes a gtf file of transcript and exon coordinates, and print unique ID of intron coordinates in the following format: chromosome:start_coordinate:end_coordinate:strand
+
+use strict;
+
+my $input_gtf = shift @ARGV or die $!;
+
+my %exon;
+my %gene;
+open (FILE, "$input_gtf") or die $!;
+while (<FILE>) {
+    my $line = $_;
+    chomp $line;
+    if ($line =~ /[a-z]/) {
+	my @array = split("\t", $line);
+	if ($array[2] eq 'exon') {
+	    my $id = $array[8];
+	    my $start = $array[3];
+	    my $end = $array[4];
+	    my $chr = $array[0];
+	    my $dir = $array[6];
+	    my $gene;
+
+	    if ($id =~ /transcript_id \"(\S+)/) {
+                $gene = $1;
+                $gene =~ s/\"//g;
+                $gene =~ s/;//;
+            }
+	    
+	    if ($id =~ /gene_id \"(\S+)/) {
+		$id = $1;
+		$id =~ s/\"//g;
+		$id =~ s/;//;
+	    }
+	    $gene{$id} = $gene;
+	    $exon{$chr}->{$dir}->{$id}->{$start} = $end;
+	}
+    }
+}
+
+close FILE;
+
+
+
+foreach my $chr (keys %exon) {
+    foreach my $dir (keys %{$exon{$chr}}) {
+	if ($dir eq '+') {
+	    foreach my $id (keys %{$exon{$chr}->{$dir}}) { 
+		my $previous_end=0;
+		foreach my $start (sort {$a<=>$b} keys %{$exon{$chr}->{$dir}->{$id}}) {
+		    my $end = $exon{$chr}->{$dir}->{$id}->{$start};
+		    if ($previous_end > 0) {
+			my $intron_start = $previous_end + 1;
+			my $intron_end = $start - 1;
+			print $gene{$id} . "\t" . $chr . ":" . $intron_start . "-" . $intron_end .  ":" . $dir . "\n";
+			$previous_end = $end;
+		    }
+		    $previous_end = $end;
+		}
+	    }
+	}
+	else {
+	    foreach my $id (keys %{$exon{$chr}->{$dir}}) { 
+		my $previous_start=3000000000;  # This number was chosen because it is for sure larger than any chromosome
+		foreach my $start (sort {$b<=>$a} keys %{$exon{$chr}->{$dir}->{$id}}) {
+		    my $end = $exon{$chr}->{$dir}->{$id}->{$start};
+		    if ($previous_start < 3000000000) {
+			my $intron_end = $previous_start - 1;
+			my $intron_start = $end + 1;
+			print $gene{$id} . "\t" . $chr . ":" . $intron_start . "-" . $intron_end .  ":" . $dir . "\n";
+			$previous_start = $start;
+		    }
+		    $previous_start = $start;
+		}
+	    }
+	}
+    }
+}
